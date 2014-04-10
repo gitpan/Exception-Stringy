@@ -1,3 +1,8 @@
+0.13      2014-04-10 17:43:44 Europe/Amsterdam
+
+   * change the syntax again to use ->$x... and the code so that it works with
+     Perl 5.8.9
+
 0.12      2014-03-26 23:15:21 Europe/Amsterdam
    * more improvements. Now simply uses the x:: package prefix, configurable
 

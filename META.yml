@@ -6,7 +6,6 @@ build_requires:
   File::Spec: 0
   IO::Handle: 0
   IPC::Open3: 0
-  Test::Fatal: 0
   Test::More: 0
 configure_requires:
   ExtUtils::MakeMaker: 6.63_03
@@ -19,9 +18,9 @@ meta-spec:
   version: 1.4
 name: Exception-Stringy
 requires:
-  perl: 5.013002
+  perl: v5.8.9
 resources:
   bugtracker: https://github.com/dams/p5-exception-stringy/issues
   homepage: https://github.com/dams/p5-exception-stringy
   repository: https://github.com/dams/p5-exception-stringy.git
-version: 0.12
+version: 0.13

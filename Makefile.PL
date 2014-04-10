@@ -8,8 +8,8 @@ use warnings;
 
 BEGIN {
 my %configure_requires = (
-    'Module::Build::Tiny' => '0.030',
     'ExtUtils::MakeMaker' => '6.63_03',
+    'Module::Build::Tiny' => '0.030',
 );
 
 my @missing = grep {
@@ -61,7 +61,7 @@ EOW
 }
 }
 
-use 5.013002;
+use 5.008009;
 
 use ExtUtils::MakeMaker 6.63_03;
 
@@ -84,10 +84,9 @@ my %WriteMakefileArgs = (
     "File::Spec" => 0,
     "IO::Handle" => 0,
     "IPC::Open3" => 0,
-    "Test::Fatal" => 0,
     "Test::More" => 0
   },
-  "VERSION" => "0.12",
+  "VERSION" => "0.13",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -98,7 +97,6 @@ my %FallbackPrereqs = (
   "File::Spec" => 0,
   "IO::Handle" => 0,
   "IPC::Open3" => 0,
-  "Test::Fatal" => 0,
   "Test::More" => 0
 );
 

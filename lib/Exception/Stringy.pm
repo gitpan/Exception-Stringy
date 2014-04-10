@@ -11,25 +11,20 @@
 
 package Exception::Stringy;
 {
-  $Exception::Stringy::VERSION = '0.12';
+  $Exception::Stringy::VERSION = '0.13';
 }
 use strict;
 use warnings;
-use 5.10.0;
+use 5.8.9;
 
 use Carp;
 
 
-my %symbols = ( throw => \(my $_symbol_throw),
-                rethrow => \(my $_symbol_rethrow),
-                raise => \(my $_symbol_raise),
-                class => \(my $_symbol_class),
-                isa => \(my $_symbol_isa),
-                fields => \(my $_symbol_fields),
-                field => \(my $_symbol_field),
-                message => \(my $_symbol_message),
-                error => \(my $_symbol_error),
-              );
+our ( $_symbol_throw, $_symbol_rethrow, $_symbol_raise, $_symbol_class,
+      $_symbol_isa, $_symbol_fields, $_symbol_field, $_symbol_message,
+      $_symbol_error);
+
+my @symbols = qw( throw rethrow raise class isa fields field message error );
 
 # regexp to extract header's type and flags
 my $only_header_r = qr/(\[[^]|]+\|[^]]*\|\])/;
@@ -60,13 +55,15 @@ sub _decode {
     decode_base64($t);
 }
 
+sub dor ($$) { defined $_[0] ? $_[0] : $_[1] }
+
 sub import {
     my $class = shift;
     my $caller = caller;
     my $package_prefix = 'x';
     while ( scalar @_ ) {
         my $klass = shift;
-        ($klass // '') =~ $klass_r or _croak(class => $klass);
+        dor($klass, '') =~ $klass_r or _croak(class => $klass);
         $klass eq '_package_prefix' and
           $package_prefix = shift, next;
         my $isa = $class;
@@ -78,11 +75,11 @@ sub import {
             my %h = %{shift()};
             $override = $h{override};
             %fields =
-              map { ($_ // '') =~ $field_name_r or _croak(field => $_); $_ => 1 }
-              @{ $h{fields} // [] };
+              map { dor($_, '') =~ $field_name_r or _croak(field => $_); $_ => 1 }
+              @{ dor($h{fields}, []) };
             $h{isa} and $isa = $h{isa};
 
-            if (length( (my $alias = $h{alias}) // '')) {
+            if (length(dor( my $alias = $h{alias}, ''))) {
                 defined $aliases{$alias}
                   and _croak(alias => $alias, 'It has already been defined');
                 $aliases{$alias} = $klass;
@@ -97,15 +94,16 @@ sub import {
         $registered{$klass} = 1;
     }
 
-    say("${package_prefix}::$_"), *{"${package_prefix}::$_"} = ${$symbols{$_}} foreach keys %symbols;
+    *{"${caller}::${package_prefix}$_"} = \${"${class}::_symbol_$_"} foreach @symbols;
+
     foreach my $k (keys %aliases) {
         my $v = $aliases{$k};
         $caller->can($k)
-          or *{"${caller}::$k"} = sub { $v->new(@_)->throw() };
+          or *{"${caller}::$k"} = sub { $v->throw(@_) };
     }    
 }
 
-sub _croak { croak $_[0] . " '" . ($_[1] // '<undef>') . "' is invalid" . ($_[2] ? ". $_[2]" : '') }
+sub _croak { croak $_[0] . " '" . dor($_[1], '<undef>') . "' is invalid" . ($_[2] ? ". $_[2]" : '') }
 
 # Class methods
 
@@ -118,7 +116,7 @@ sub new {
              or croak "invalid field '$_', exception class '$class' didn't declare it"
            }
       keys %fields
-    ) . '|]' . ($message // '');
+    ) . '|]' . dor($message, '');
 }
 
 sub raise { croak shift->new(@_)}
@@ -145,7 +143,7 @@ $_symbol_class = sub {
 
 $_symbol_isa = sub {
     my ($class) = $_[0] =~ $header_r
-      or _croak(exception => $_[0]);
+      or return;
     $class->isa($_[1]);
 };
 
@@ -162,8 +160,11 @@ $_symbol_field = sub {
     my $regexp = qr/\|$f:(.*?)\|/;
     ${"${class}::Fields"}{$f}
       or _croak(field => $f, "It is unknown for this exception class ('$class')");
-    @_ == 3
-      or return _decode( ($fields =~ $regexp)[0] // return );
+    if (@_ < 3) {
+        defined (my $value = ($fields =~ $regexp)[0])
+          or return;
+        return _decode( $value );
+    }
 
     $fields =~ s/$regexp/|/;
     $fields =~ s/^\|\|$/|/;
@@ -176,10 +177,12 @@ $_symbol_field = sub {
 };
 
 $_symbol_message = sub {
-    @_ == 2
-      or return( $_[0] =~ s/$only_header_r//r
-                 or _croak(exception => $_[0])
-               );
+    if (@_ < 2) {
+        my $message = $_[0];
+        $message =~ s/$only_header_r//
+          or _croak(exception => $_[0]);
+        return $message;
+    }
 
     my ($header) = $_[0] =~ $only_header_r
       or _croak(exception => $_[0]);
@@ -191,8 +194,6 @@ $_symbol_message = sub {
 };
 
 $_symbol_error = $_symbol_message;
-
-
 
 1;
 
@@ -208,7 +209,7 @@ Exception::Stringy - a Perl Exceptions module where exceptions are not objects b
 
 =head1 VERSION
 
-version 0.12
+version 0.13
 
 =head1 SYNOPSIS
 
@@ -239,17 +240,17 @@ version 0.12
 
       # you can build exception step by step
       my $e = ExceptionWithFields->new("The error message");
-      $e->x::field(quixotic => "some_value");
-      $e->x::throw();
+      $e->$xfield(quixotic => "some_value");
+      $e->$xthrow();
   
   }
   catch {
-      if ( $_->x::isa('Exception::Stringy') ) {
-          warn $_->x::error, "\n";
+      if ( $_->$xisa('Exception::Stringy') ) {
+          warn $_->$xerror, "\n";
       }
   
-      if ( $_->x::isa('ExceptionWithFields') ) {
-          if ( $_->x::field('quixotic') ) {
+      if ( $_->$xisa('ExceptionWithFields') ) {
+          if ( $_->$xfield('quixotic') ) {
               handle_quixotic_exception();
           }
           else {
@@ -257,7 +258,7 @@ version 0.12
           }
       }
       else {
-          $_->x::rethrow;
+          $_->$xrethrow;
       }
   };
    
@@ -279,7 +280,7 @@ to declare, throw, and interact with them. It can be seen as a light version of
 C<Exception::Class>, except that there is a catch: exceptions are B<not
 objects>, they are B<normal strings>, with a pattern that contains properties.
 
-This modules has no external dependancies.
+This modules has no external dependancies. It requires Perl 5.8.9 or above.
 
 =head1 WHY WOULD YOU WANT SUCH THING ?
 
@@ -322,8 +323,8 @@ you'd expect from similar modules like L<Exception::Class>
   try {
     MyException->throw("foo");
   } catch {
-    die "this is not a Exception::Stringy" unless $_->x::isa('Exception::Stringy');
-    if ($_->x::isa('MyException')) { ... }
+    die "this is not a Exception::Stringy" unless $_->$xisa('Exception::Stringy');
+    if ($_->$xisa('MyException')) { ... }
   };
 
 =head1 BASIC USAGE
@@ -382,15 +383,15 @@ registered exception can be updated.
 
   eval { ... 1; } or do {
     my $e = $@;
-    if ($e->x::isa('Exception::Stringy')) {
-      if ($e->x::isa('ExceptionWithFields')) {
+    if ($e->$xisa('Exception::Stringy')) {
+      if ($e->$xisa('ExceptionWithFields')) {
         ...
-      } elsif ($e->x::isa('YetAnotherException')) {
+      } elsif ($e->$xisa('YetAnotherException')) {
         ...
       }
     } else {
       # this works on anything, even objects or bare strings
-      e->x::rethrow;
+      e->$xrethrow;
     }
   };
 
@@ -438,38 +439,38 @@ By default, the methods are in the C<x> package (mnemonic: eXception) but you
 can change that by specifying an other C<_package_prefix> (see L<ADVANCED
 OPTIONS> below)
 
-=head2 x::throw(), x::rethrow(), x::raise()
+=head2 $xthrow(), $xrethrow(), $xraise()
 
-  $exception->x::throw();
-  $exception->x::rethrow();
-  $exception->x::raise();
+  $exception->$xthrow();
+  $exception->$xrethrow();
+  $exception->$xraise();
 
 Throws the exception.
 
-=head2 x::class()
+=head2 $xclass()
 
-  my $class = $exception->x::class();
+  my $class = $exception->$xclass();
 
 Returns the exception class name.
 
-=head2 x::isa()
+=head2 $xisa()
 
-  if ($exception->x::isa('ExceptionClass')) {... }
+  if ($exception->$xisa('ExceptionClass')) {... }
 
 Returns true if the class of the given exception C<->isa()> the class given in
 parameter.
 
-=head2 x::fields()
+=head2 $xfields()
 
-  my @fields = $exception->x::fields();
+  my @fields = $exception->$xfields();
 
 Returns the list of field names that are in the exception.
 
-=head2 x::field()
+=head2 $xfield()
 
-  my $value = $exception->x::field('field_name');
+  my $value = $exception->$xfield('field_name');
 
-  $exception->x::field(field_name => $value);
+  $exception->$xfield(field_name => $value);
 
 Set or get the given field. If the value contains one of these forbidden
 caracters, then it is transparently base64 encoded and decoded.
@@ -492,13 +493,13 @@ C<\034>, the 0x28 seperator ASCII caracter.
 
 =back
 
-=head2 x::message(), x::error()
+=head2 $xmessage(), $xerror()
 
-  my $text = $exception->x::message();
-  my $text = $exception->x::error();
+  my $text = $exception->$xmessage();
+  my $text = $exception->$xerror();
 
-  $exception->x::message("Error message");
-  $exception->x::error("Error message");
+  $exception->$xmessage("Error message");
+  $exception->$xerror("Error message");
 
 Set or get the error message of the exception
 
@@ -521,15 +522,15 @@ special keys can be:
 If set, pseudo methods imported in the calling methods use the specified
 package prefix. By default, it is C<x>, so methods will look like:
 
-  $e->x::throw();
-  $e->x::fields();
+  $e->$xthrow();
+  $e->$xfields();
   ...
 
-But if you specify _package_prefix to be C<exception> then imported pseudo
+But if you specify _package_prefix to be C<exception_> then imported pseudo
 methods will be like this:
 
-  $e->exception::throw();
-  $e->exception::fields();
+  $e->$exception_throw();
+  $e->$exception_fields();
   ...
 
 =head1 AUTHOR

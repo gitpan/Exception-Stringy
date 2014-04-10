@@ -1,7 +1,7 @@
 
 
 This archive contains the distribution Exception-Stringy,
-version 0.12:
+version 0.13:
 
   a Perl Exceptions module where exceptions are not objects but simple strings.
 
