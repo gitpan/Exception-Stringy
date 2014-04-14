@@ -1,3 +1,6 @@
+0.14      2014-04-14 12:25:13 Europe/Amsterdam
+   * implement isa properly, added test
+
 0.13      2014-04-10 17:43:44 Europe/Amsterdam
 
    * change the syntax again to use ->$x... and the code so that it works with

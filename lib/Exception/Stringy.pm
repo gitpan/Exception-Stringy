@@ -11,7 +11,7 @@
 
 package Exception::Stringy;
 {
-  $Exception::Stringy::VERSION = '0.13';
+  $Exception::Stringy::VERSION = '0.14';
 }
 use strict;
 use warnings;
@@ -57,6 +57,10 @@ sub _decode {
 
 sub dor ($$) { defined $_[0] ? $_[0] : $_[1] }
 
+sub Fields { return (); }
+
+sub _fields_hashref { +{ map { $_ => 1 } $_[0]->Fields() } }
+
 sub import {
     my $class = shift;
     my $caller = caller;
@@ -67,15 +71,15 @@ sub import {
         $klass eq '_package_prefix' and
           $package_prefix = shift, next;
         my $isa = $class;
-        my ($override, %fields);
+        my ($override, @fields);
       # for ( (1)x!! ( my $r = ref $_[0] )) {
         if (my $r = ref $_[0] ) {
             $r eq 'HASH' or _croak('exception definition structure' => $r,
                                    'It should be HASH');
             my %h = %{shift()};
             $override = $h{override};
-            %fields =
-              map { dor($_, '') =~ $field_name_r or _croak(field => $_); $_ => 1 }
+            @fields =
+              map { dor($_, '') =~ $field_name_r or _croak(field => $_); $_ }
               @{ dor($h{fields}, []) };
             $h{isa} and $isa = $h{isa};
 
@@ -88,9 +92,10 @@ sub import {
 
         ! $override && $registered{$klass}
           and _croak(class => $klass, 'It has already been registered');
-        %{"${klass}::Fields"} = %fields;
-        @{"${klass}::ISA"} = $isa;
 
+        unshift @{"${klass}::ISA"}, $isa;
+        @{"${klass}::_internal_fields"} = @fields;
+        eval "package $klass; sub Fields { (\$_[0]->SUPER::Fields, \@${klass}::_internal_fields) }";
         $registered{$klass} = 1;
     }
 
@@ -112,7 +117,7 @@ sub new {
     $registered{$class} or croak "exception class '$class' has not been registered yet";
     '[' . $class . '|' . join('|',
       map  { $_ . ':' . _encode($fields{$_}) }
-      grep { ${"${class}::Fields"}{$_}
+      grep { $class->_fields_hashref()->{$_}
              or croak "invalid field '$_', exception class '$class' didn't declare it"
            }
       keys %fields
@@ -124,7 +129,7 @@ sub throw { croak shift->new(@_)}
 
 sub registered_fields {
     my ($class) = @_;
-    keys %{"${class}::Fields"};
+    $class->Fields();
 }
 
 sub registered_exception_classes { keys %registered }
@@ -158,7 +163,7 @@ $_symbol_field = sub {
     my ($class, $fields) = $_[0] =~ $header_r
       or _croak(exception => $_[0]);
     my $regexp = qr/\|$f:(.*?)\|/;
-    ${"${class}::Fields"}{$f}
+    $class->_fields_hashref()->{$f}
       or _croak(field => $f, "It is unknown for this exception class ('$class')");
     if (@_ < 3) {
         defined (my $value = ($fields =~ $regexp)[0])
@@ -209,7 +214,7 @@ Exception::Stringy - a Perl Exceptions module where exceptions are not objects b
 
 =head1 VERSION
 
-version 0.13
+version 0.14
 
 =head1 SYNOPSIS
 
@@ -358,6 +363,8 @@ underscore are reserved for options specification (see L<ADVANCED OPTIONS>);
 =head3 isa
 
 Expects a name (Str). If set, the exception will inherit from the given name.
+Using this mechanism, an exception class can inherits fields from an other
+exception class, and add its own fields. Only simple inlheritance is supported.
 
 =head3 fields
 
@@ -381,6 +388,7 @@ registered exception can be updated.
 
 =head2 catching and checking exceptions
 
+  use Exception::Stringy;
   eval { ... 1; } or do {
     my $e = $@;
     if ($e->$xisa('Exception::Stringy')) {

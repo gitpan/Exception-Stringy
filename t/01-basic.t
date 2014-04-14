@@ -66,7 +66,7 @@ like( exception { Exception::Stringy->import(Foo => { fields => [ 'pl op' ] }) }
       "dies when field contains space" );
 
 
-is_deeply( \%PermissionException::Fields,
+is_deeply( PermissionException->_fields_hashref(),
            { login => 1,
              password => 1,
            },
