@@ -12,7 +12,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 54;
+use Test::More tests => 56;
 
 BEGIN {
 require Exception::Stringy;
@@ -198,4 +198,16 @@ is_deeply( PermissionException->_fields_hashref(),
 {
     my $e = PermissionException2->new('This is the text');
     ok($e->$xisa('Exception::Stringy'), "it's an exception");
+}
+
+{
+    # test with an instance based exception
+    my $e = bless({}, 'PermissionException2');
+    ok($e->$xisa('Exception::Stringy'), "xisa works on blessed references");
+}
+
+{
+    # test with an instance based exception
+    my $e = "plop";
+    ok( ! $e->$xisa('Exception::Stringy'), "xisa doesn't blow up on other things");
 }

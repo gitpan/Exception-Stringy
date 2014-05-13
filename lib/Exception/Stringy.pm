@@ -11,12 +11,13 @@
 
 package Exception::Stringy;
 {
-  $Exception::Stringy::VERSION = '0.14';
+  $Exception::Stringy::VERSION = '0.15';
 }
 use strict;
 use warnings;
 use 5.8.9;
 
+use Scalar::Util qw(blessed);
 use Carp;
 
 
@@ -147,8 +148,11 @@ $_symbol_class = sub {
 };
 
 $_symbol_isa = sub {
-    my ($class) = $_[0] =~ $header_r
-      or return;
+    my $class = blessed($_[0]);
+    if ( ! defined $class ) {
+        ($class) = $_[0] =~ $header_r
+          or return;
+    }
     $class->isa($_[1]);
 };
 
@@ -214,7 +218,7 @@ Exception::Stringy - a Perl Exceptions module where exceptions are not objects b
 
 =head1 VERSION
 
-version 0.14
+version 0.15
 
 =head1 SYNOPSIS
 
@@ -232,7 +236,7 @@ version 0.14
       },
   );
   
-  ## with Try::Tiny
+  ### with Try::Tiny
   
   use Try::Tiny;
    
@@ -267,7 +271,7 @@ version 0.14
       }
   };
    
-  # without Try::Tiny
+  ### without Try::Tiny
    
   eval {
       # ...
@@ -466,7 +470,29 @@ Returns the exception class name.
   if ($exception->$xisa('ExceptionClass')) {... }
 
 Returns true if the class of the given exception C<->isa()> the class given in
-parameter.
+parameter. Otherwise, return false.
+
+C<$xisa> is more useful than it seems:
+
+=over
+
+=item *
+
+When applied on an C<Exception::Stringy> exception, it'll properly etract the
+exception class and perform the C<isa> call on it.
+
+=item *
+
+When applied on a blessed reference, it'll do the right thing, and work like standard C<isa()>.
+
+=item *
+
+When applied on something else, it won't die, but return false.
+
+=back
+
+So it means that you can safely use C<$exception->$xisa('SomeClass')> whatever
+C<$exception> is, no need to do additional testing on it.
 
 =head2 $xfields()
 
@@ -510,6 +536,16 @@ C<\034>, the 0x28 seperator ASCII caracter.
   $exception->$xerror("Error message");
 
 Set or get the error message of the exception
+
+=head1 MIXING WITH EXCEPTION OBJECTS
+
+Sometimes, you'll have to work with some of the exceptions being
+C<Exception::Stringy> exceptions, and some other exceptions being objects
+(blessedd references), for example coming from C<Exception::Class>.
+
+In this case, I recommend using C<$xisa> method to handle them appropriately,
+as C<$exception->$xisa('SomeClass')> will work on any type of C<$exception>,
+and will not die. Instead, it'll always return a true or false value.
 
 =head1 ADVANCED OPTIONS
 
