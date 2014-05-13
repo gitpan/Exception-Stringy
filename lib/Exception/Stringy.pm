@@ -11,7 +11,7 @@
 
 package Exception::Stringy;
 {
-  $Exception::Stringy::VERSION = '0.15';
+  $Exception::Stringy::VERSION = '0.16';
 }
 use strict;
 use warnings;
@@ -65,12 +65,12 @@ sub _fields_hashref { +{ map { $_ => 1 } $_[0]->Fields() } }
 sub import {
     my $class = shift;
     my $caller = caller;
-    my $package_prefix = 'x';
+    my $method_prefix = 'x';
     while ( scalar @_ ) {
         my $klass = shift;
         dor($klass, '') =~ $klass_r or _croak(class => $klass);
-        $klass eq '_package_prefix' and
-          $package_prefix = shift, next;
+        $klass eq '_method_prefix' and
+          $method_prefix = shift, next;
         my $isa = $class;
         my ($override, @fields);
       # for ( (1)x!! ( my $r = ref $_[0] )) {
@@ -100,7 +100,7 @@ sub import {
         $registered{$klass} = 1;
     }
 
-    *{"${caller}::${package_prefix}$_"} = \${"${class}::_symbol_$_"} foreach @symbols;
+    *{"${caller}::${method_prefix}$_"} = \${"${class}::_symbol_$_"} foreach @symbols;
 
     foreach my $k (keys %aliases) {
         my $v = $aliases{$k};
@@ -218,7 +218,7 @@ Exception::Stringy - a Perl Exceptions module where exceptions are not objects b
 
 =head1 VERSION
 
-version 0.15
+version 0.16
 
 =head1 SYNOPSIS
 
@@ -448,7 +448,7 @@ and not blessed references, so we have to use a trick to have the arrow syntax
 working.
 
 By default, the methods are in the C<x> package (mnemonic: eXception) but you
-can change that by specifying an other C<_package_prefix> (see L<ADVANCED
+can change that by specifying an other C<_method_prefix> (see L<ADVANCED
 OPTIONS> below)
 
 =head2 $xthrow(), $xrethrow(), $xraise()
@@ -551,27 +551,27 @@ and will not die. Instead, it'll always return a true or false value.
 
   use Exception::Stringy (
       MyException => { ... },
-      _package_prefix => 'exception',
+      _method_prefix => 'exception_',
   );
 
   my $e = MyException->new("error message");
-  say $e->exception::message();
+  say $e->$exception_message();
 
 When C<use>-ing this module, you can specify special keys that starts with an
 underscore ( C<_> ). They will be interpreted as options. Currently these
 special keys can be:
 
-=head3 _package_prefix
+=head3 _method_prefix
 
 If set, pseudo methods imported in the calling methods use the specified
-package prefix. By default, it is C<x>, so methods will look like:
+prefix. By default, it is C<x>, so methods will look like:
 
   $e->$xthrow();
   $e->$xfields();
   ...
 
-But if you specify _package_prefix to be C<exception_> then imported pseudo
-methods will be like this:
+But if you specify _method_prefix to be for instance C<exception_>, then
+imported pseudo methods will be like this:
 
   $e->$exception_throw();
   $e->$exception_fields();

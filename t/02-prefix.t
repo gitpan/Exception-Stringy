@@ -19,7 +19,7 @@ use Exception::Stringy (
   'PermissionException2',
   ExceptionAliasOnly => { alias => 'throw_me' },
 
-  _package_prefix => '_x_'
+  _method_prefix => '_x_'
 
 );
 
