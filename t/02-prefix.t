@@ -14,13 +14,11 @@ use warnings;
 
 use Test::More tests => 57;
 
-use Exception::Stringy (
+use Exception::Stringy method_prefix => '_x_';
+Exception::Stringy->declare_exceptions(
   PermissionException => { fields => [ qw(login password) ], alias => 'throw_plop' },
   'PermissionException2',
   ExceptionAliasOnly => { alias => 'throw_me' },
-
-  _method_prefix => '_x_'
-
 );
 
 
@@ -30,40 +28,40 @@ is_deeply( [ sort Exception::Stringy->registered_exception_classes ],
            [ qw(ExceptionAliasOnly PermissionException PermissionException2) ],
            "exceptions properly registered" );
 
-# test the import
-is( exception { Exception::Stringy->import },
+# test the declare_exceptions
+is( exception { Exception::Stringy->declare_exceptions },
      '',
      "no class is good" );
 
-like( exception { Exception::Stringy->import(undef) },
+like( exception { Exception::Stringy->declare_exceptions(undef) },
       qr/class '<undef>' is invalid/,
       "dies when class undef" );
 
-like( exception { Exception::Stringy->import('1plop') },
+like( exception { Exception::Stringy->declare_exceptions('1plop') },
       qr/class '1plop' is invalid/,
       "dies when class starts with number" );
 
-like( exception { Exception::Stringy->import('|plop') },
+like( exception { Exception::Stringy->declare_exceptions('|plop') },
       qr/class '|plop' is invalid/,
       "dies when class contains |" );
 
-like( exception { Exception::Stringy->import('pl op') },
+like( exception { Exception::Stringy->declare_exceptions('pl op') },
       qr/class 'pl op' is invalid/,
       "dies when class contains space" );
 
-like( exception { Exception::Stringy->import(Foo => { fields => [ '1plop' ] }) },
+like( exception { Exception::Stringy->declare_exceptions(Foo => { fields => [ '1plop' ] }) },
       qr/field '1plop' is invalid/,
       "dies when field starts with number" );
 
-like( exception { Exception::Stringy->import('PermissionException') },
+like( exception { Exception::Stringy->declare_exceptions('PermissionException') },
       qr/class 'PermissionException' is invalid. It has already been registered/,
       "dies when exception class is repeated" );
 
-like( exception { Exception::Stringy->import(Foo => { fields => [ '|plop' ] }) },
+like( exception { Exception::Stringy->declare_exceptions(Foo => { fields => [ '|plop' ] }) },
       qr/field '\|plop' is invalid/,
       "dies when field contains |" );
 
-like( exception { Exception::Stringy->import(Foo => { fields => [ 'pl op' ] }) },
+like( exception { Exception::Stringy->declare_exceptions(Foo => { fields => [ 'pl op' ] }) },
       qr/field 'pl op' is invalid/,
       "dies when field contains space" );
 
@@ -210,6 +208,6 @@ is_deeply( PermissionException->_fields_hashref(),
     ok($e->$_x_isa('Exception::Stringy'), "it's an exception");
 }
 
-like( exception { Exception::Stringy->import(NewException => { alias => 'throw_me' }) },
+like( exception { Exception::Stringy->declare_exceptions(NewException => { alias => 'throw_me' }) },
       qr/alias 'throw_me' is invalid. It has already been defined/,
       "dies when alias is repeated" );

@@ -11,7 +11,7 @@
 
 package Exception::Stringy;
 {
-  $Exception::Stringy::VERSION = '0.16';
+  $Exception::Stringy::VERSION = '0.17';
 }
 use strict;
 use warnings;
@@ -30,7 +30,7 @@ my @symbols = qw( throw rethrow raise class isa fields field message error );
 # regexp to extract header's type and flags
 my $only_header_r = qr/(\[[^]|]+\|[^]]*\|\])/;
 my $header_r = qr/\[([^]|]+)(\|([^]]*)\|)\]/;
-my $klass_r  = qr/^([_a-zA-Z][_a-zA-Z0-9]*)$/;
+my $klass_r  = qr/^([_a-zA-Z:][_a-zA-Z0-9:]*)$/;
 my $field_name_r = qr/^([_a-zA-Z][_a-zA-Z0-9]*)$/;
 my $field_value_r = qr/^([^\034:|]*)$/;
 my $field_value_b64_r = qr|^\034([A-Za-z0-9+/=]+)$|;
@@ -63,17 +63,31 @@ sub Fields { return (); }
 sub _fields_hashref { +{ map { $_ => 1 } $_[0]->Fields() } }
 
 sub import {
+    my ($class, %options) = @_;
+    my $caller = caller;
+
+    my $method_prefix = dor($options{method_prefix}, 'x');
+
+    do {
+        *{"${caller}::${method_prefix}$_"} = \${"${class}::_symbol_$_"}
+        } foreach @symbols;
+
+    foreach my $k (keys %aliases) {
+        my $v = $aliases{$k};
+        $caller->can($k)
+          or *{"${caller}::$k"} = sub { $v->throw(@_) };
+    }
+}
+
+sub declare_exceptions {
     my $class = shift;
     my $caller = caller;
-    my $method_prefix = 'x';
+
     while ( scalar @_ ) {
         my $klass = shift;
         dor($klass, '') =~ $klass_r or _croak(class => $klass);
-        $klass eq '_method_prefix' and
-          $method_prefix = shift, next;
         my $isa = $class;
         my ($override, @fields);
-      # for ( (1)x!! ( my $r = ref $_[0] )) {
         if (my $r = ref $_[0] ) {
             $r eq 'HASH' or _croak('exception definition structure' => $r,
                                    'It should be HASH');
@@ -100,13 +114,12 @@ sub import {
         $registered{$klass} = 1;
     }
 
-    *{"${caller}::${method_prefix}$_"} = \${"${class}::_symbol_$_"} foreach @symbols;
-
     foreach my $k (keys %aliases) {
         my $v = $aliases{$k};
         $caller->can($k)
           or *{"${caller}::$k"} = sub { $v->throw(@_) };
-    }    
+    }
+
 }
 
 sub _croak { croak $_[0] . " '" . dor($_[1], '<undef>') . "' is invalid" . ($_[2] ? ". $_[2]" : '') }
@@ -218,11 +231,12 @@ Exception::Stringy - a Perl Exceptions module where exceptions are not objects b
 
 =head1 VERSION
 
-version 0.16
+version 0.17
 
 =head1 SYNOPSIS
 
-  use Exception::Stringy (
+  use Exception::Stringy;
+  Exception::Stringy->declare_exceptions(
       'MyException',
    
       'YetAnotherException' => {
@@ -246,6 +260,11 @@ version 0.16
   
       # or use an aliase
       throw_fields 'Error message', grandiosity => 1;
+
+      # or with fields
+      ExceptionWithFields->throw('I feel funny.',
+                                 quixotic => 1,
+                                 grandiosity => 2);
 
       # you can build exception step by step
       my $e = ExceptionWithFields->new("The error message");
@@ -286,10 +305,10 @@ version 0.16
 
 This module allows you to declare exceptions, and provides a simple interface
 to declare, throw, and interact with them. It can be seen as a light version of
-C<Exception::Class>, except that there is a catch: exceptions are B<not
-objects>, they are B<normal strings>, with a pattern that contains properties.
+C<Exception::Class>, except that there is a catch: exceptions are
+B<not objects>, they are B<normal strings>, with a pattern that contains properties.
 
-This modules has no external dependancies. It requires Perl 5.8.9 or above.
+This modules has one external dependancy: C<Scalar::Util>. It requires Perl 5.8.9 or above.
 
 =head1 WHY WOULD YOU WANT SUCH THING ?
 
@@ -324,7 +343,8 @@ isn't removed (it can be moved inside the string though).
 As a result, exceptions are more robust, while still retaining all features
 you'd expect from similar modules like L<Exception::Class>
 
-  use Exception::Stringy ('MyException');
+  use Exception::Stringy;
+  Exception::Stringy->declare_exceptions('MyException');
   use Try::Tiny;
 
   $SIG{__DIE__} = sub { die "FATAL: $_[0]" };
@@ -340,9 +360,10 @@ you'd expect from similar modules like L<Exception::Class>
 
 =head2 Registering exception classes
 
-Defining exception classes is done when C<use>'ing C<Exception::Stringy>:
+Defining exception classes is done by calling C<declare_exceptions>:
 
-  use Exception::Stringy (
+  use Exception::Stringy;
+  Exception::Stringy->declare_exceptions(
     'MyException',
     'ExceptionWithFields' => {
           isa    => 'MyException',
@@ -392,6 +413,8 @@ registered exception can be updated.
 
 =head2 catching and checking exceptions
 
+The pseudo methods (see below) are loaded when C<use>-ing the C<Exception::Stringy> module:
+
   use Exception::Stringy;
   eval { ... 1; } or do {
     my $e = $@;
@@ -408,6 +431,10 @@ registered exception can be updated.
   };
 
 =head1 CLASS METHODS
+
+=head2 declare_exceptions
+
+See L<BASIC USAGE> above.
 
 =head2 raise, throw
 
@@ -441,15 +468,15 @@ Returns the possible fields that an exception of the given class can have.
 
 Returns the exceptions classes that have been registered.
 
-=head1 METHODS
+=head1 (pseudo) METHODS
 
 The syntax is a bit strange, but that's because exceptions are bare strings,
 and not blessed references, so we have to use a trick to have the arrow syntax
 working.
 
-By default, the methods are in the C<x> package (mnemonic: eXception) but you
-can change that by specifying an other C<_method_prefix> (see L<ADVANCED
-OPTIONS> below)
+By default, the methods are prefixed by C<x> (mnemonic: eXception) but you
+can change that by specifying a other C<method_prefix> option at import time
+(see L<IMPORT OPTIONS> below)
 
 =head2 $xthrow(), $xrethrow(), $xraise()
 
@@ -506,7 +533,7 @@ Returns the list of field names that are in the exception.
 
   $exception->$xfield(field_name => $value);
 
-Set or get the given field. If the value contains one of these forbidden
+Set or get the given field. If the value contains one of the following
 caracters, then it is transparently base64 encoded and decoded.
 
 The list of forbidden caracters are:
@@ -537,7 +564,27 @@ C<\034>, the 0x28 seperator ASCII caracter.
 
 Set or get the error message of the exception
 
-=head1 MIXING WITH EXCEPTION OBJECTS
+=head1 GOOD PRACTISES
+
+=head2 exceptions declaration
+
+It's often useful to gather exceptions declarations in a common module. You can
+easily do that, because declaring new exceptions is decoupled from C<use>-ing
+the module. All you need is to implement a module that uses
+C<<Exception::Stringy->declare_exceptions(...)>> one or more times. Other
+modules can then use this module. Note however that they also will have to
+C<use> C<Exception::Stringy> to have pseudo-methods imported in their
+namespaces.
+
+=head2 exceptions naming
+
+It's recommended to use normal class names, with a common prefix, like
+C<MyException::Network::Connection>, and to reflect the inheritance
+relationship within the name. So C<MyException::Networking::Connection> would
+inherit from C<MyException::Networking>. Multiple inheritance or roles aren't
+provided by this package.
+
+=head2 mixing with exception objects
 
 Sometimes, you'll have to work with some of the exceptions being
 C<Exception::Stringy> exceptions, and some other exceptions being objects
@@ -547,21 +594,21 @@ In this case, I recommend using C<$xisa> method to handle them appropriately,
 as C<$exception->$xisa('SomeClass')> will work on any type of C<$exception>,
 and will not die. Instead, it'll always return a true or false value.
 
-=head1 ADVANCED OPTIONS
+=head1 IMPORT OPTIONS
 
   use Exception::Stringy (
-      MyException => { ... },
-      _method_prefix => 'exception_',
+      method_prefix => 'exception_',
   );
+  Exception::Stringy->declare_exceptions('MyException');
+
 
   my $e = MyException->new("error message");
   say $e->$exception_message();
 
-When C<use>-ing this module, you can specify special keys that starts with an
-underscore ( C<_> ). They will be interpreted as options. Currently these
-special keys can be:
+When C<use>-ing this module, you can specify parameters as a Hash. Here is as
+list of supported options:
 
-=head3 _method_prefix
+=head3 method_prefix
 
 If set, pseudo methods imported in the calling methods use the specified
 prefix. By default, it is C<x>, so methods will look like:
@@ -570,12 +617,14 @@ prefix. By default, it is C<x>, so methods will look like:
   $e->$xfields();
   ...
 
-But if you specify _method_prefix to be for instance C<exception_>, then
+But if for instance you specify method_prefix to be instead C<exception_>, then
 imported pseudo methods will be like this:
 
   $e->$exception_throw();
   $e->$exception_fields();
   ...
+
+=for Pod::Coverage Fields dor
 
 =head1 AUTHOR
 

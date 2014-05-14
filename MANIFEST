@@ -12,5 +12,10 @@ t/00-compile.t
 t/01-basic.t
 t/02-prefix.t
 t/03_fields.t
+t/04_external_declaration_.t
+t/05_multiple_load.t
 t/release-distmeta.t
 t/release-pod-coverage.t
+t/tlib/ExceptionDeclaration.pm
+t/tlib/User1.pm
+t/tlib/User2.pm

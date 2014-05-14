@@ -14,16 +14,14 @@ use warnings;
 
 use Test::More tests => 9;
 
-BEGIN {
-require Exception::Stringy;
-Exception::Stringy->import (
+use Exception::Stringy;
+Exception::Stringy->declare_exceptions(
   PermissionException => { fields => [ qw(login) ] },
   PermissionException2 => { isa => 'PermissionException' },
   PermissionException3 => { isa => 'PermissionException2',
                             fields => [ qw(password) ],
                           },
 );
-}
 
 sub exception (&) { my ($coderef) = @_; local $@; eval { $coderef->() }; $@ }
 
