@@ -11,7 +11,7 @@
 
 package Exception::Stringy;
 {
-  $Exception::Stringy::VERSION = '0.17';
+  $Exception::Stringy::VERSION = '0.18';
 }
 use strict;
 use warnings;
@@ -40,7 +40,8 @@ no strict 'refs';
 no warnings qw(once);
 
 my %registered;
-my %aliases;
+my %throw_aliases;
+my %name_aliases;
 
 use MIME::Base64;
 
@@ -72,10 +73,16 @@ sub import {
         *{"${caller}::${method_prefix}$_"} = \${"${class}::_symbol_$_"}
         } foreach @symbols;
 
-    foreach my $k (keys %aliases) {
-        my $v = $aliases{$k};
+    foreach my $k (keys %throw_aliases) {
+        my $v = $throw_aliases{$k};
         $caller->can($k)
           or *{"${caller}::$k"} = sub { $v->throw(@_) };
+    }
+
+    foreach my $k (keys %name_aliases) {
+        my $v = $name_aliases{$k};
+        $caller->can($k)
+          or *{"${caller}::$k"} = sub () { $v };
     }
 }
 
@@ -98,10 +105,16 @@ sub declare_exceptions {
               @{ dor($h{fields}, []) };
             $h{isa} and $isa = $h{isa};
 
-            if (length(dor( my $alias = $h{alias}, ''))) {
-                defined $aliases{$alias}
-                  and _croak(alias => $alias, 'It has already been defined');
-                $aliases{$alias} = $klass;
+            if (length(dor( my $throw_alias = $h{throw_alias}, ''))) {
+                defined $throw_aliases{$throw_alias}
+                  and _croak(throw_alias => $throw_alias, 'It has already been defined');
+                $throw_aliases{$throw_alias} = $klass;
+            }
+
+            if (length(dor( my $name_alias = $h{name_alias}, ''))) {
+                defined $name_aliases{$name_alias}
+                  and _croak(name_alias => $name_alias, 'It has already been defined');
+                $name_aliases{$name_alias} = $klass;
             }
         }
 
@@ -114,10 +127,16 @@ sub declare_exceptions {
         $registered{$klass} = 1;
     }
 
-    foreach my $k (keys %aliases) {
-        my $v = $aliases{$k};
+    foreach my $k (keys %throw_aliases) {
+        my $v = $throw_aliases{$k};
         $caller->can($k)
           or *{"${caller}::$k"} = sub { $v->throw(@_) };
+    }
+
+    foreach my $k (keys %name_aliases) {
+        my $v = $name_aliases{$k};
+        $caller->can($k)
+          or *{"${caller}::$k"} = sub () { $v };
     }
 
 }
@@ -231,7 +250,7 @@ Exception::Stringy - a Perl Exceptions module where exceptions are not objects b
 
 =head1 VERSION
 
-version 0.17
+version 0.18
 
 =head1 SYNOPSIS
 
@@ -246,7 +265,7 @@ version 0.17
       'ExceptionWithFields' => {
           isa    => 'YetAnotherException',
           fields => [ 'grandiosity', 'quixotic' ],
-          alias  => 'throw_fields',
+          throw_alias  => 'throw_fields',
       },
   );
   
@@ -258,7 +277,7 @@ version 0.17
       # throw an exception
       MyException->throw('I feel funny.');
   
-      # or use an aliase
+      # or use an alias
       throw_fields 'Error message', grandiosity => 1;
 
       # or with fields
@@ -368,7 +387,7 @@ Defining exception classes is done by calling C<declare_exceptions>:
     'ExceptionWithFields' => {
           isa    => 'MyException',
           fields => [ qw(field1 field2) ],
-          alias  => 'throw_fields',
+          throw_alias  => 'throw_fields',
     },
   );
 
@@ -396,11 +415,19 @@ exception class, and add its own fields. Only simple inlheritance is supported.
 Expects a list of field names (ArrayRef). If set, the exceptions will be able
 to set/get these fields. Fields values should be short scalars (no references).
 
-=head3 alias
+=head3 throw_alias
+
+Expects a function name (Str). If set, the user will be able to use this
+function as a shortcut to throw the exception. From the example above,
+C<throw_fields(...)> will be equivalent to C<<ExceptionWithFields->throw(...)>>
+
+=head3 name_alias
 
 Expects a function name (Str). If set, the user will be able to use this name
-as a class method, as a shortcut. From the example above,
-C<throw_fields->(...)> will be equivalent to C<ExceptionWithFields->throw(...)>
+as an alias for the class name. Warning, if you use it, make sure to enclose
+the C<declare_exceptions> call in a C<BEGIN> block, otherwise the alias won't
+be available in the rest of the file (it will however be available in other
+modules loading it)
 
 =head3 override
 

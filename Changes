@@ -1,3 +1,7 @@
+0.18      2014-05-16 00:05:57 Europe/Amsterdam
+
+  * added name_alias, renamed alias into throw_alias
+
 0.17      2014-05-14 07:44:07 Europe/Amsterdam
 
    * changed API: exceptions are not declared at import time, but with declare_exceptions

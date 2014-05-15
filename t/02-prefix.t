@@ -12,20 +12,21 @@
 use strict;
 use warnings;
 
-use Test::More tests => 57;
+use Test::More tests => 58;
 
 use Exception::Stringy method_prefix => '_x_';
-Exception::Stringy->declare_exceptions(
-  PermissionException => { fields => [ qw(login password) ], alias => 'throw_plop' },
+BEGIN { Exception::Stringy->declare_exceptions(
+  PermissionException => { fields => [ qw(login password) ], throw_alias => 'throw_plop' },
   'PermissionException2',
-  ExceptionAliasOnly => { alias => 'throw_me' },
+  ExceptionAliasOnly => { throw_alias => 'throw_me' },
+  ExceptionNameAlias => { name_alias => 'Plop' },
 );
-
+    }
 
 sub exception (&) { my ($coderef) = @_; local $@; eval { $coderef->() }; $@ }
 
 is_deeply( [ sort Exception::Stringy->registered_exception_classes ],
-           [ qw(ExceptionAliasOnly PermissionException PermissionException2) ],
+           [ qw(ExceptionAliasOnly ExceptionNameAlias PermissionException PermissionException2) ],
            "exceptions properly registered" );
 
 # test the declare_exceptions
@@ -208,6 +209,11 @@ is_deeply( PermissionException->_fields_hashref(),
     ok($e->$_x_isa('Exception::Stringy'), "it's an exception");
 }
 
-like( exception { Exception::Stringy->declare_exceptions(NewException => { alias => 'throw_me' }) },
-      qr/alias 'throw_me' is invalid. It has already been defined/,
-      "dies when alias is repeated" );
+like( exception { Exception::Stringy->declare_exceptions(NewException => { throw_alias => 'throw_me' }) },
+      qr/throw_alias 'throw_me' is invalid. It has already been defined/,
+      "dies when throw_alias is repeated" );
+
+{
+    my $e = Plop->new('This is the text');
+    ok($e->$_x_isa(Plop), "it's the right aliased exception");
+}
