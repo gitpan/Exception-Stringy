@@ -24,4 +24,4 @@ resources:
   bugtracker: https://github.com/dams/p5-exception-stringy/issues
   homepage: https://github.com/dams/p5-exception-stringy
   repository: https://github.com/dams/p5-exception-stringy.git
-version: 0.18
+version: 0.19
