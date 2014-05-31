@@ -12,7 +12,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 56;
+use Test::More tests => 58;
 
 use Exception::Stringy;
 
@@ -126,6 +126,11 @@ is_deeply( PermissionException->_fields_hashref(),
     $e = PermissionException->new('This is the text', login => "");
     is($e, '[PermissionException|login:|]This is the text',
        "exception string with login empty");
+    is($e->$xfield('login'), '',
+       "login is empty");
+    $e = PermissionException->new('This is the text', login => undef);
+    is($e, '[PermissionException|login:|]This is the text',
+       "exception string with login undef");
     is($e->$xfield('login'), '',
        "login is empty");
     $e = PermissionException->new('This is the text', login => "in base \034 64");

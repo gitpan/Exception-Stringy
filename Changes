@@ -1,3 +1,6 @@
+0.20      2014-05-31 18:25:34 Europe/Amsterdam
+  * fix warnings when an exception field is undef
+
 0.19      2014-05-22 10:08:28 Europe/Amsterdam
 
   * rethrow properly propagate original exception throw point

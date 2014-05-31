@@ -11,7 +11,7 @@
 
 package Exception::Stringy;
 {
-  $Exception::Stringy::VERSION = '0.19';
+  $Exception::Stringy::VERSION = '0.20';
 }
 use strict;
 use warnings;
@@ -46,6 +46,8 @@ my %name_aliases;
 use MIME::Base64;
 
 sub _encode {
+    defined $_[0]
+      or return '';
     $_[0] =~ $field_value_r
       and return $_[0];
     "\034" . encode_base64($_[0], '');
@@ -254,7 +256,7 @@ Exception::Stringy - a Perl Exceptions module where exceptions are not objects b
 
 =head1 VERSION
 
-version 0.19
+version 0.20
 
 =head1 SYNOPSIS
 
